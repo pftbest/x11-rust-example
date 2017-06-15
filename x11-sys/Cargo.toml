@@ -1,0 +1,7 @@
+[package]
+name = "x11-sys"
+version = "0.1.0"
+authors = ["Vadzim Dambrouski <pftbest@gmail.com>"]
+
+[build-dependencies]
+bindgen = "0.25"

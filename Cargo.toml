@@ -1,0 +1,9 @@
+[package]
+name = "x11-rs"
+version = "0.1.0"
+authors = ["Vadzim Dambrouski <pftbest@gmail.com>"]
+
+[dependencies]
+x11-sys = { path = "x11-sys" }
+quick-error = "1.2"
+cstr-macro = "0.1"
