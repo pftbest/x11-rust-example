@@ -1,13 +1,14 @@
-extern crate x11_sys as xlib;
-#[macro_use]
-extern crate quick_error;
 #[macro_use]
 extern crate cstr_macro;
+extern crate libc;
+#[macro_use]
+extern crate quick_error;
+extern crate x11_sys as xlib;
 
 mod errors;
+pub mod shm;
 pub use errors::*;
 
-use std::marker::PhantomData;
 use std::ptr::null_mut;
 use std::os::raw::*;
 use std::mem;
@@ -20,7 +21,7 @@ pub struct Display {
 impl Display {
     pub fn open() -> Result<Self, X11Error> {
         let display = unsafe { xlib::XOpenDisplay(null_mut()) };
-        if display == null_mut() {
+        if display.is_null() {
             Err("open display")?;
         }
         Ok(Display { raw: display })
@@ -36,6 +37,8 @@ impl Drop for Display {
 pub struct Window<'a> {
     display: &'a Display,
     window_id: xlib::Window,
+    wm_protocols: xlib::Atom,
+    wm_delete_window: xlib::Atom,
 }
 
 impl<'a> Window<'a> {
@@ -45,44 +48,55 @@ impl<'a> Window<'a> {
 
         let window_id = unsafe {
             let mut attributes: xlib::XSetWindowAttributes = mem::zeroed();
-            xlib::XCreateWindow(display.raw,
-                                root_wnd_id,
-                                0,
-                                0,
-                                width,
-                                height,
-                                0,
-                                24,
-                                xlib::InputOutput,
-                                null_mut(),
-                                (xlib::CWOverrideRedirect | xlib::CWBackPixel |
-                                 xlib::CWBorderPixel) as c_ulong,
-                                &mut attributes)
+            xlib::XCreateWindow(
+                display.raw,
+                root_wnd_id,
+                0,
+                0,
+                width,
+                height,
+                0,
+                24,
+                xlib::InputOutput,
+                null_mut(),
+                c_ulong::from(xlib::CWOverrideRedirect | xlib::CWBackPixel | xlib::CWBorderPixel),
+                &mut attributes,
+            )
         };
         if window_id == 0 {
             Err("create window")?;
         }
 
+        let wm_protocols;
+        let wm_delete_window;
         unsafe {
-            xlib::XInternAtom(display.raw, cstr!("WM_PROTOCOLS"), xlib::False as c_int);
-            let wm_delete_window =
+            wm_protocols =
+                xlib::XInternAtom(display.raw, cstr!("WM_PROTOCOLS"), xlib::False as c_int);
+            wm_delete_window =
                 xlib::XInternAtom(display.raw, cstr!("WM_DELETE_WINDOW"), xlib::False as c_int);
             let mut protocols = [wm_delete_window];
-            xlib::XSetWMProtocols(display.raw,
-                                  window_id,
-                                  protocols.as_mut_ptr(),
-                                  protocols.len() as c_int);
-            xlib::XSelectInput(display.raw,
-                               window_id,
-                               (xlib::ExposureMask | xlib::KeyPressMask | xlib::ButtonPressMask |
-                                xlib::StructureNotifyMask) as
-                               c_long);
+            xlib::XSetWMProtocols(
+                display.raw,
+                window_id,
+                protocols.as_mut_ptr(),
+                protocols.len() as c_int,
+            );
+            xlib::XSelectInput(
+                display.raw,
+                window_id,
+                c_long::from(
+                    xlib::ExposureMask | xlib::KeyPressMask | xlib::ButtonPressMask
+                        | xlib::StructureNotifyMask,
+                ),
+            );
         }
 
         Ok(Window {
-               display: display,
-               window_id: window_id,
-           })
+            display,
+            window_id,
+            wm_protocols,
+            wm_delete_window,
+        })
     }
 
     pub fn set_title(&self, title: &str) {
@@ -92,29 +106,51 @@ impl<'a> Window<'a> {
 
     pub fn show(&self) {
         unsafe { xlib::XMapWindow(self.display.raw, self.window_id) };
+        self.sync();
+    }
+
+    pub fn sync(&self) {
         unsafe { xlib::XSync(self.display.raw, xlib::False as c_int) };
     }
 
     pub fn check_event(&self) -> Option<Event> {
-        let mut event: xlib::XEvent = unsafe { mem::zeroed() };
-        let result = unsafe {
-            xlib::XCheckWindowEvent(self.display.raw,
-                                    self.window_id,
-                                    xlib::KeyPressMask as c_long,
-                                    &mut event)
-        };
-        if result == 0 {
-            return None;
+        unsafe {
+            let mut event: xlib::XEvent = mem::zeroed();
+
+            if xlib::XCheckTypedWindowEvent(
+                self.display.raw,
+                self.window_id,
+                xlib::ClientMessage as c_int,
+                &mut event,
+            ) != 0
+            {
+                if event.xclient.message_type as xlib::Atom == self.wm_protocols
+                    && event.xclient.data.l[0] as xlib::Atom == self.wm_delete_window
+                {
+                    return Some(Event::Delete);
+                }
+            }
+
+            if xlib::XCheckWindowEvent(
+                self.display.raw,
+                self.window_id,
+                c_long::from(xlib::KeyPressMask | xlib::ExposureMask),
+                &mut event,
+            ) != 0
+            {
+                match event.type_ as u32 {
+                    xlib::KeyPress => {
+                        return Some(Event::Key(event.xkey.keycode));
+                    }
+                    xlib::Expose => {
+                        return Some(Event::Expose);
+                    }
+                    _ => {}
+                }
+            }
         }
 
-        let ev_type = *unsafe { event.type_.as_ref() };
-        match ev_type as u32 {
-            xlib::KeyPress => {
-                let key_event = *unsafe { event.xkey.as_ref() };
-                Some(Event::Key(key_event.keycode as u32))
-            }
-            _ => None,
-        }
+        None
     }
 }
 
@@ -132,13 +168,10 @@ pub struct GC<'a> {
 impl<'a> GC<'a> {
     pub fn create(window: &'a Window) -> Result<Self, X11Error> {
         let gc = unsafe { xlib::XCreateGC(window.display.raw, window.window_id, 0, null_mut()) };
-        if gc == null_mut() {
+        if gc.is_null() {
             Err("create gc")?;
         }
-        Ok(GC {
-               window: window,
-               gc: gc,
-           })
+        Ok(GC { window, gc })
     }
 }
 
@@ -150,4 +183,6 @@ impl<'a> Drop for GC<'a> {
 
 pub enum Event {
     Key(u32),
+    Delete,
+    Expose,
 }

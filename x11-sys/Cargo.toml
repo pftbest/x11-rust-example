@@ -4,4 +4,4 @@ version = "0.1.0"
 authors = ["Vadzim Dambrouski <pftbest@gmail.com>"]
 
 [build-dependencies]
-bindgen = "0.25"
+bindgen = "0.33.2"

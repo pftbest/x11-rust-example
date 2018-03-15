@@ -2,6 +2,7 @@ extern crate bindgen;
 
 use std::env;
 use std::path::PathBuf;
+use bindgen::RustTarget;
 
 fn main() {
     // Tell cargo to tell rustc to link the system bzip2
@@ -15,7 +16,7 @@ fn main() {
         // Do not generate unstable Rust code that
         // requires a nightly rustc and enabling
         // unstable features.
-        .no_unstable_rust()
+        .rust_target(RustTarget::Stable_1_21)
         // The input header we would like to generate
         // bindings for.
         .header("wrapper.h")
