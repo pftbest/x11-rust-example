@@ -26,6 +26,10 @@ impl Display {
         }
         Ok(Display { raw: display })
     }
+
+    pub fn sync(&self) {
+        unsafe { xlib::XSync(self.raw, xlib::False as _) };
+    }
 }
 
 impl Drop for Display {
@@ -70,16 +74,15 @@ impl<'a> Window<'a> {
         let wm_protocols;
         let wm_delete_window;
         unsafe {
-            wm_protocols =
-                xlib::XInternAtom(display.raw, cstr!("WM_PROTOCOLS"), xlib::False as c_int);
+            wm_protocols = xlib::XInternAtom(display.raw, cstr!("WM_PROTOCOLS"), xlib::False as _);
             wm_delete_window =
-                xlib::XInternAtom(display.raw, cstr!("WM_DELETE_WINDOW"), xlib::False as c_int);
+                xlib::XInternAtom(display.raw, cstr!("WM_DELETE_WINDOW"), xlib::False as _);
             let mut protocols = [wm_delete_window];
             xlib::XSetWMProtocols(
                 display.raw,
                 window_id,
                 protocols.as_mut_ptr(),
-                protocols.len() as c_int,
+                protocols.len() as _,
             );
             xlib::XSelectInput(
                 display.raw,
@@ -106,25 +109,22 @@ impl<'a> Window<'a> {
 
     pub fn show(&self) {
         unsafe { xlib::XMapWindow(self.display.raw, self.window_id) };
-        self.sync();
-    }
-
-    pub fn sync(&self) {
-        unsafe { xlib::XSync(self.display.raw, xlib::False as c_int) };
+        self.display.sync();
     }
 
     pub fn check_event(&self) -> Option<Event> {
-        unsafe {
-            let mut event: xlib::XEvent = mem::zeroed();
+        let mut event: xlib::XEvent = unsafe { mem::zeroed() };
 
+        unsafe {
             if xlib::XCheckTypedWindowEvent(
                 self.display.raw,
                 self.window_id,
-                xlib::ClientMessage as c_int,
+                xlib::ClientMessage as _,
                 &mut event,
             ) != 0
             {
-                if event.xclient.message_type as xlib::Atom == self.wm_protocols
+                if event.type_ as u32 == xlib::ClientMessage
+                    && event.xclient.message_type as xlib::Atom == self.wm_protocols
                     && event.xclient.data.l[0] as xlib::Atom == self.wm_delete_window
                 {
                     return Some(Event::Delete);

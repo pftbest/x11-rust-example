@@ -8,3 +8,6 @@ x11-sys = { path = "x11-sys" }
 quick-error = "1.2.1"
 cstr-macro = "0.1.0"
 libc = "0.2.39"
+
+[dev-dependencies]
+rand = "*"

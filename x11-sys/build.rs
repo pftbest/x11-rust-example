@@ -5,9 +5,9 @@ use std::path::PathBuf;
 use bindgen::RustTarget;
 
 fn main() {
-    // Tell cargo to tell rustc to link the system bzip2
-    // shared library.
+    // Tell cargo to tell rustc to link the X11 shared library.
     println!("cargo:rustc-link-lib=X11");
+    println!("cargo:rustc-link-lib=Xext");
 
     // The bindgen::Builder is the main entry point
     // to bindgen, and lets you build up options for
