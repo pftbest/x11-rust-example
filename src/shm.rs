@@ -116,10 +116,8 @@ impl SharedMemory {
         }
 
         let shm_addr = unsafe { shmat(shm_id, null(), 0) };
-
-        unsafe { shmctl(shm_id, IPC_RMID, null_mut()) };
-
         if shm_addr as isize == -1 {
+            unsafe { shmctl(shm_id, IPC_RMID, null_mut()) };
             Err("attach to shared memory")?;
         }
 
@@ -142,6 +140,9 @@ impl SharedMemory {
 
 impl Drop for SharedMemory {
     fn drop(&mut self) {
-        unsafe { shmdt(self.0.shmaddr as *mut _) };
+        unsafe {
+            shmdt(self.0.shmaddr as *mut _);
+            shmctl(self.0.shmid, IPC_RMID, null_mut());
+        }
     }
 }

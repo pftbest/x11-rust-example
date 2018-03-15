@@ -5,24 +5,29 @@ use std::path::PathBuf;
 use bindgen::RustTarget;
 
 fn main() {
-    // Tell cargo to tell rustc to link the X11 shared library.
+    let target = env::var("TARGET").unwrap();
+
+    if target.contains("apple") {
+        // Library path for XQuartz
+        println!("cargo:rustc-link-search=/opt/X11/lib");
+    }
+
+    // Link X11 libraries
     println!("cargo:rustc-link-lib=X11");
     println!("cargo:rustc-link-lib=Xext");
 
-    // The bindgen::Builder is the main entry point
-    // to bindgen, and lets you build up options for
-    // the resulting bindings.
-    let bindings = bindgen::Builder::default()
-        // Do not generate unstable Rust code that
-        // requires a nightly rustc and enabling
-        // unstable features.
+    // Configure bindgen
+    let mut config = bindgen::Builder::default()
         .rust_target(RustTarget::Stable_1_21)
-        // The input header we would like to generate
-        // bindings for.
-        .header("wrapper.h")
-        // Finish the builder and generate the bindings.
-        .generate()
-        // Unwrap the Result and panic on failure.
+        .header("wrapper.h");
+
+    if target.contains("apple") {
+        // Add include path for XQuartz
+        config = config.clang_arg("-I/opt/X11/include")
+    }
+
+    // Generate the bindings
+    let bindings = config.generate()
         .expect("Unable to generate bindings");
 
     // Write the bindings to the $OUT_DIR/bindings.rs file.
