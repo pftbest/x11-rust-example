@@ -1,11 +1,10 @@
-extern crate rand;
+extern crate fastrand;
 extern crate x11_rs as x11;
 
-use x11::{Display, Event, Window, GC};
-use x11::shm::ShmImage;
 use std::thread;
 use std::time::Duration;
-use rand::Rng;
+use x11::shm::ShmImage;
+use x11::{Display, Event, Window, GC};
 
 fn main() {
     let display = Display::open().unwrap();
@@ -16,7 +15,6 @@ fn main() {
     window.show();
 
     let mut img = ShmImage::create(&display, 640, 480).unwrap();
-    let mut rng = rand::thread_rng();
 
     loop {
         let ev = window.check_event();
@@ -30,9 +28,9 @@ fn main() {
                 return;
             }
             _ => {
-                let x = rng.gen_range(0, img.width() - 1);
-                let y = rng.gen_range(0, img.height() - 1);
-                let c = rng.gen_range(0, 0x00FFFFFF);
+                let x = fastrand::choice(0..img.width() - 1).unwrap();
+                let y = fastrand::choice(0..img.height() - 1).unwrap();
+                let c = fastrand::choice(0..0x00FFFFFF).unwrap();
                 img.put_pixel(x, y, c);
                 img.put_image(&window, &gc, 0, 0);
                 display.sync();

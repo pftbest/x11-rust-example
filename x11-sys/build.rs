@@ -2,7 +2,6 @@ extern crate bindgen;
 
 use std::env;
 use std::path::PathBuf;
-use bindgen::RustTarget;
 
 fn main() {
     let target = env::var("TARGET").unwrap();
@@ -18,7 +17,6 @@ fn main() {
 
     // Configure bindgen
     let mut config = bindgen::Builder::default()
-        .rust_target(RustTarget::Stable_1_21)
         .header("wrapper.h");
 
     if target.contains("apple") {

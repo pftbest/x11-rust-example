@@ -1,18 +1,16 @@
-#[macro_use]
-extern crate cstr_macro;
 extern crate libc;
 #[macro_use]
-extern crate quick_error;
+extern crate thiserror;
 extern crate x11_sys as xlib;
 
 mod errors;
 pub mod shm;
 pub use errors::*;
 
-use std::ptr::null_mut;
-use std::os::raw::*;
-use std::mem;
 use std::ffi::CString;
+use std::mem;
+use std::os::raw::*;
+use std::ptr::null_mut;
 
 pub struct Display {
     raw: *mut xlib::Display,
@@ -74,9 +72,13 @@ impl<'a> Window<'a> {
         let wm_protocols;
         let wm_delete_window;
         unsafe {
-            wm_protocols = xlib::XInternAtom(display.raw, cstr!("WM_PROTOCOLS"), xlib::False as _);
-            wm_delete_window =
-                xlib::XInternAtom(display.raw, cstr!("WM_DELETE_WINDOW"), xlib::False as _);
+            wm_protocols =
+                xlib::XInternAtom(display.raw, b"WM_PROTOCOLS\0".as_ptr(), xlib::False as _);
+            wm_delete_window = xlib::XInternAtom(
+                display.raw,
+                b"WM_DELETE_WINDOW\0".as_ptr(),
+                xlib::False as _,
+            );
             let mut protocols = [wm_delete_window];
             xlib::XSetWMProtocols(
                 display.raw,
@@ -88,7 +90,9 @@ impl<'a> Window<'a> {
                 display.raw,
                 window_id,
                 c_long::from(
-                    xlib::ExposureMask | xlib::KeyPressMask | xlib::ButtonPressMask
+                    xlib::ExposureMask
+                        | xlib::KeyPressMask
+                        | xlib::ButtonPressMask
                         | xlib::StructureNotifyMask,
                 ),
             );

@@ -1,8 +1,8 @@
-use {Display, Window, GC};
 use errors::X11Error;
-use xlib;
 use libc::{shmat, shmctl, shmdt, shmget, IPC_CREAT, IPC_PRIVATE, IPC_RMID};
 use std::ptr::{null, null_mut};
+use xlib;
+use {Display, Window, GC};
 
 pub struct ShmImage<'a> {
     display: &'a Display,
