@@ -3,8 +3,8 @@ extern crate x11_rs as x11;
 
 use std::thread;
 use std::time::Duration;
-use x11::shm::ShmImage;
-use x11::{Display, Event, Window, GC};
+use crate::x11::shm::ShmImage;
+use crate::x11::{Display, Event, Window, GC};
 
 fn main() {
     let display = Display::open().unwrap();

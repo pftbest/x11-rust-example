@@ -5,7 +5,7 @@ extern crate x11_sys as xlib;
 
 mod errors;
 pub mod shm;
-pub use errors::*;
+pub use crate::errors::*;
 
 use std::ffi::CString;
 use std::mem;
